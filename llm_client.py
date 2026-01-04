@@ -2,18 +2,16 @@
 """
 LLM client for local inference with optional LoRA/PEFT adapter loading.
 
-Responsibilities:
-- Load tokenizer and model (base model defined in finetune_config or env)
-- If a fine-tuned adapter exists in the configured OUTPUT_DIR, apply it (PeftModel)
+
+- Load tokenizer and model
+- If a fine-tuned adapter exists in the configured OUTPUT_DIR, apply it 
 - Expose:
     - call_llm_local(prompt: str, max_new_tokens: Optional[int]=None, temperature: Optional[float]=None) -> str
     - answer_query(query: str, top_k: int = 5) -> str   (compat API used by other modules)
     - reload_model(path: Optional[str]=None)           (reload model / switch adapter)
 - Provide a global VectorStore instance `vs` for retrieval (keeps project compatibility)
 
-Notes:
-- Designed to be robust in Colab: uses device auto-detection.
-- For large models ensure your environment has enough VRAM; use 8-bit loading or LoRA adapters.
+
 """
 
 from __future__ import annotations
@@ -42,7 +40,7 @@ except Exception:
     config_module = None
     _HAS_CONFIG_MODULE = False
 
-# Project imports (assumed to exist in repo)
+
 try:
     from vector_store import VectorStore
 except Exception:
@@ -228,9 +226,9 @@ def _load_tokenizer_and_model():
 
     # Final logging about finetuned vs base
     if _is_finetuned:
-        logger.info("[LLM] ✅ Fine-tuned adapter active (type=%s). loaded_from=%s", _finetune_type, _model_loaded_from)
+        logger.info("[LLM]  Fine-tuned adapter active (type=%s). loaded_from=%s", _finetune_type, _model_loaded_from)
     else:
-        logger.info("[LLM] ℹ️ Base model active (no adapter applied). loaded_from=%s", _model_loaded_from)
+        logger.info("[LLM]  Base model active (no adapter applied). loaded_from=%s", _model_loaded_from)
 
 
 def reload_model(adapter_or_model_path: Optional[str] = None) -> None:
@@ -295,7 +293,7 @@ def call_llm_local(prompt: str, max_new_tokens: Optional[int] = None, temperatur
     temperature = float(temperature) if temperature is not None else LLM_TEMPERATURE_ENV
 
     # Tokenize input (truncation to avoid exceeding model context length)
-    # We don't set a hard max_length here because tokenizer/model may vary; rely on model to error if needed.
+    # do not set a hard max_length here because tokenizer/model may vary; rely on model to error if needed.
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True).to(device)
 
     # generation kwargs
@@ -310,8 +308,7 @@ def call_llm_local(prompt: str, max_new_tokens: Optional[int] = None, temperatur
         with torch.no_grad():
             output_ids = model.generate(**inputs, **gen_kwargs)
     except Exception as e:
-        # Some models with device_map may require passing input_ids on CPU or special handling.
-        # Try a safer generate path: move inputs to device of model
+    
         try:
             mdl_device = next(model.parameters()).device
             inputs = {k: v.to(mdl_device) for k, v in inputs.items()}
@@ -328,8 +325,7 @@ def call_llm_local(prompt: str, max_new_tokens: Optional[int] = None, temperatur
         output_text = output_ids[0].tolist()
         output_text = str(output_text)
 
-    # Some code previously stripped prompt from the beginning. Here we return full generation.
-    # If you want only the continuation, remove the prompt prefix:
+    
     if output_text.startswith(prompt):
         # return only the generated continuation after the prompt
         continuation = output_text[len(prompt):].strip()
@@ -339,7 +335,7 @@ def call_llm_local(prompt: str, max_new_tokens: Optional[int] = None, temperatur
 
 
 # ------------------------
-# Compatibility wrapper: answer_query (RAG pipeline)
+# Compatibility wrapper: answer_query 
 # ------------------------
 def answer_query(query: str, top_k: int = 5) -> str:
     """
@@ -365,7 +361,7 @@ def answer_query(query: str, top_k: int = 5) -> str:
         return "⚠️ No relevant documents found in the vector store."
 
     # contexts might be list of dicts; prompts.build_prompt expects list of strings in older contract
-    # We'll coerce: if contexts are dicts, join their 'text' fields.
+    #  if contexts are dicts, join their 'text' fields.
     if contexts and isinstance(contexts[0], dict):
         contexts_texts = [c.get("text", "") for c in contexts]
     else:
@@ -378,7 +374,7 @@ def answer_query(query: str, top_k: int = 5) -> str:
         answer = call_llm_local(prompt)
     except Exception as e:
         logger.exception("answer_query generation error: %s", e)
-        return f"❌ Error generating answer: {e}"
+        return f" Error generating answer: {e}"
 
     return answer
 
@@ -398,3 +394,4 @@ def get_loaded_model_info() -> Dict[str, Any]:
     }
 
 # End of llm_client.py
+
